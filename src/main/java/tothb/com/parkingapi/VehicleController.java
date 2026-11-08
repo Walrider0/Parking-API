@@ -54,13 +54,13 @@ public class VehicleController
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Logn id)
+    public ResponseEntity<Void> delete(@PathVariable Long id)
     {
         if (!repo.existsById(id))
         {
             return ResponseEntity.notFound().build();
         }
-        repo.deleteAllById(id);
+        repo.deleteById(id);
         return ResponseEntity.noContent().build();
     }
 }

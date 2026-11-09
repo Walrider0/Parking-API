@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <title>Parkoló rendszám ellenőrző</title>
+    <style>
+        body { font-family: sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; }
+        input, button { padding: .5rem; margin: .25rem 0; }
+        section { border: 1px solid #ccc; border-radius: 6px; padding: 1rem; margin-bottom: 1rem; }
+        .ok { color: green; } .no { color: red; }
+        table { width: 100%; border-collapse: collapse; }
+        td, th { border-bottom: 1px solid #ddd; padding: .4rem; text-align: left; }
+    </style>
+</head>
+<body>
+<h1>Parkoló rendszám ellenőrző</h1>
+
+<section>
+    <h2>Ellenőrzés</h2>
+    <input id="checkPlate" placeholder="ABC-123">
+    <button onclick="checkPlate()">Ellenőrzés</button>
+    <p id="checkResult"></p>
+</section>
+
+<section>
+    <h2>Új jármű</h2>
+    <input id="newPlate" placeholder="Rendszám"><br>
+    <input id="newOwner" placeholder="Tulajdonos"><br>
+    <label><input type="checkbox" id="newAllowed" checked> Behajthat</label><br>
+    <button onclick="addVehicle()">Mentés</button>
+    <p id="addResult"></p>
+</section>
+
+<section>
+    <h2>Járművek</h2>
+    <table>
+        <thead><tr><th>Rendszám</th><th>Tulajdonos</th><th>Behajthat</th><th></th></tr></thead>
+        <tbody id="list"></tbody>
+    </table>
+</section>
+
+<script>
+    const API = '/api/vehicles';
+
+    async function checkPlate() {
+        const plate = document.getElementById('checkPlate').value;
+        const out = document.getElementById('checkResult');
+        if (!plate.trim()) return;
+
+        const res = await fetch(API + '/' + encodeURIComponent(plate));
+        if (res.status === 404) {
+            out.className = 'no';
+            out.textContent = 'Nincs nyilvántartva.';
+            return;
+        }
+        const v = await res.json();
+        out.className = v.allowed ? 'ok' : 'no';
+        out.textContent = v.plate + ' (' + (v.owner || '-') + '): ' +
+            (v.allowed ? 'BEHAJTHAT' : 'TILTOTT');
+    }
+
+    async function addVehicle() {
+        const body = {
+            plate: document.getElementById('newPlate').value,
+            owner: document.getElementById('newOwner').value,
+            allowed: document.getElementById('newAllowed').checked
+        };
+        const out = document.getElementById('addResult');
+
+        const res = await fetch(API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        if (res.ok) {
+            out.textContent = 'Mentve.';
+            loadList();
+        } else {
+            out.textContent = await res.text();
+        }
+    }
+
+    async function removeVehicle(id) {
+        await fetch(API + '/' + id, { method: 'DELETE' });
+        loadList();
+    }
+
+    async function loadList() {
+        const res = await fetch(API);
+        const vehicles = await res.json();
+        const tbody = document.getElementById('list');
+        tbody.innerHTML = '';
+
+        for (const v of vehicles) {
+            const tr = document.createElement('tr');
+            // textContent: így nem lehet HTML-t beinjektálni a tulajdonos mezőn át
+            for (const text of [v.plate, v.owner || '', v.allowed ? 'igen' : 'nem']) {
+                const td = document.createElement('td');
+                td.textContent = text;
+                tr.appendChild(td);
+            }
+            const td = document.createElement('td');
+            const btn = document.createElement('button');
+            btn.textContent = 'Törlés';
+            btn.onclick = () => removeVehicle(v.id);
+            td.appendChild(btn);
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+        }
+    }
+
+    loadList();
+</script>
+</body>
+</html>
